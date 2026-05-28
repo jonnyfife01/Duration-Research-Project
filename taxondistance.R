@@ -210,6 +210,7 @@ cor.test(duration, distance)
 cor.test(logresults$duration, logresults$distance)
 
 # Put all the results into a pdf
+# Make sure to change path if editing for personal use
 pdf("C:/users/jonny/Documents/R projects/Research Project Implementation/Results/graphs.pdf")
 
 hist(duration, main = "Distribution of Genus Durations",
