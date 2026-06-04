@@ -179,6 +179,8 @@ hist(distance, main = "Genus Distance from Origin at Extinction",
      xlab = "Distance(m)")
 
 results <- cbind(duration, distance)
+results <- as.data.frame(results)
+results$genus <- unique(dat$genus)
 
 # log results
 logresults <- as.data.frame(log10(results))
@@ -192,14 +194,21 @@ logresults <- logresults[logresults$distance != -Inf, ]
 hist(logresults$duration)
 hist(logresults$distance)
 
+# Statistics of Results
+resultstat <- lm(duration ~ distance, results)
+summary(resultstat)
+
+logresultstat <- lm(duration ~ distance, logresults)
+summary(logresultstat)
+
 # Plot Distance and Duration
-plot(duration, distance,
-     xlab = "Genus Lifespan (Ma)", ylab = "Distance from Location of Genus Origin at Extinction (m)",
+plot(distance, duration,
+     ylab = "Genus Lifespan (Ma)", xlab = "Distance from Location of Genus Origin at Extinction (m)",
      main = "Relationship between Genus Lifespan and Dispersion",
      col = "#1A611E50")
 
-plot(logresults$duration, logresults$distance,
-     xlab = expression("log(Genus Lifespan (Ma))"), ylab = "log(Distance from Location of Genus Origin at Extinction (m))",
+plot(y = logresults$duration, x = logresults$distance,
+     ylab = expression("log(Genus Lifespan (Ma))"), xlab = "log(Distance from Location of Genus Origin at Extinction (m))",
      main = "Relationship between Genus Lifespan and Dispersion (log)",
      col = "#7C7CD950")
 
@@ -209,6 +218,116 @@ cor.test(duration, distance)
 
 cor.test(logresults$duration, logresults$distance)
 
+
+
+
+####################
+# Compare different groups
+
+# Comparing tropical to non-tropical taxa
+troplat <- 23.4 # establishing tropics at 23.4 degrees latitude
+
+tropicdat <- abs(dat$paleolat) <= troplat
+
+nontropicgenera <- unique(dat$genus[!tropicdat]) # Species which do not rely on the tropics but may enter it
+tropicgenera <- unique(dat$genus[!dat$genus %in% nontropicgenera]) # Species which rely on tropics
+
+# Compare duration/distances for tropical/nontropical genera
+tropicresults <- results[results$genus %in% tropicgenera, ]
+
+nontropicresults <- results[results$genus %in% nontropicgenera, ]
+
+logtropicresults <- tropicresults
+logtropicresults$duration <- log10(logtropicresults$duration)
+logtropicresults$distance <- log10(logtropicresults$distance)
+logtropicresults <- logtropicresults[!is.na(logtropicresults),]
+logtropicresults <- logtropicresults[logtropicresults$distance != -Inf,]
+
+lognontropicresults <- nontropicresults
+lognontropicresults$duration <- log10(lognontropicresults$duration)
+lognontropicresults$distance <- log10(lognontropicresults$distance)
+lognontropicresults <- lognontropicresults[!is.na(lognontropicresults),]
+lognontropicresults <- lognontropicresults[lognontropicresults$distance != -Inf,]
+
+# Histograms of duration and distance for tropic and nontropic genera
+hist(tropicresults$duration)
+hist(tropicresults$distance)
+
+hist(logtropicresults$duration)
+hist(logtropicresults$distance)
+
+hist(nontropicresults$duration)
+hist(nontropicresults$distance)
+
+hist(lognontropicresults$duration)
+hist(lognontropicresults$distance)
+
+# Statistics of tropic results
+tropicstat <- lm(duration ~ distance, logtropicresults)
+summary(tropicstat)
+
+nontropicstat <- lm(duration ~ distance, lognontropicresults)
+summary(nontropicstat)
+
+# Scatterplots for results
+plot(tropicresults$duration, tropicresults$distance)
+plot(y = logtropicresults$duration, x = logtropicresults$distance,
+     main = "Dispersion of Tropical Genera",
+     ylab = "log(Genus Duration(Ma))",
+     xlab = "Log(Distance from Origin at Extinction(m))",
+     col = "#34eb3480", pch = 16)
+abline(tropicstat)
+
+plot(nontropicresults$duration, nontropicresults$distance)
+plot(y = lognontropicresults$duration, x = lognontropicresults$distance,
+     main = "Dispersion of Non-Tropical Genera",
+     ylab = "log(Genus Duration(Ma))",
+     xlab = "Log(Distance from Origin at Extinction(m))",
+     col = "#38e8e850", pch = 16)
+abline(nontropicstat)
+
+################################
+# Compare results for taxa which are regarded as disperers vs nondispersers
+# Using lecithotrophic vs planktotrophic brachiopods
+plankorder <- c("Lingulida", "Discinida")
+
+plankbrach <- dat$genus[dat$order %in% plankorder]
+
+lecithorder <- c("Craniida", "Terebratulida", "Rhynchonellida")
+
+lecithbrack <- dat$genus[dat$order %in% lecithorder]
+
+# Get logged stats for both  groups
+plankresults <- results[results$genus %in% plankbrach, ]
+plankresults$duration <- log10(plankresults$duration)
+plankresults$distance <- log10(plankresults$distance)
+plankresults <- plankresults[plankresults$distance != -Inf, ]
+plankstats <- lm(duration ~ distance, plankresults)
+summary(plankstats)
+
+lecitresults <- results[results$genus %in% lecithbrack, ]
+lecitresults$duration <- log10(lecitresults$duration)
+lecitresults$distance <- log10(lecitresults$distance)
+lecitresults <- lecitresults[lecitresults$distance != -Inf, ]
+lecitstats <- lm(duration ~ distance, lecitresults)
+summary(lecitstats)
+
+# Plot results
+plot(plankresults$distance, plankresults$duration,
+     main = "Duration of Planktotrophic Brachiopods",
+     xlab = "log(Distance from Origin at Extinction(m))",
+     ylab = "log(Duration of Genus(Ma))",
+     col = "#0004fc", pch = 16)
+abline(plankstats)
+
+plot(lecitresults$distance, lecitresults$duration,
+     main = "Duration of Lecithotrophic Brachiopods",
+     xlab = "log(Distance from Origin at Extinction(m))",
+     ylab = "log(Duration of Genus(Ma))",
+     col = "#fc5000", pch = 16)
+abline(lecitstats)
+
+###########################################
 # Put all the results into a pdf
 # Make sure to change path if editing for personal use
 pdf("C:/users/jonny/Documents/R projects/Research Project Implementation/Results/graphs.pdf")
@@ -219,14 +338,50 @@ hist(duration, main = "Distribution of Genus Durations",
 hist(distance, main = "Genus Distance from Origin at Extinction",
      xlab = "Distance(m)")
 
-plot(duration, distance,
-     xlab = "Genus Lifespan (Ma)", ylab = "Distance from Location of Genus Origin at Extinction (m)",
+plot(distance, duration,
+     ylab = "Genus Lifespan (Ma)", xlab = "Distance from Location of Genus Origin at Extinction (m)",
      main = "Relationship between Genus Lifespan and Dispersion",
      col = "#1A611E50")
+abline(resultstat)
+print(summary(resultstat))
 
-plot(logresults$duration, logresults$distance,
-     xlab = expression("log(Genus Lifespan (Ma))"), ylab = "log(Distance from Location of Genus Origin at Extinction (m))",
+plot(y = logresults$duration, x = logresults$distance,
+     ylab = expression("log(Genus Lifespan (Ma))"), xlab = "log(Distance from Location of Genus Origin at Extinction (m))",
      main = "Relationship between Genus Lifespan and Dispersion (log)",
      col = "#7C7CD950")
+abline(logresultstat)
+summary(logresultstat)
+
+plot(y = logtropicresults$duration, x = logtropicresults$distance,
+     main = "Dispersion of Tropical Genera",
+     ylab = "log(Genus Duration(Ma))",
+     xlab = "Log(Distance from Origin at Extinction(m))",
+     col = "#34eb3480", pch = 16)
+abline(tropicstat)
+print(summary(tropicstat))
+
+plot(y = lognontropicresults$duration, x = lognontropicresults$distance,
+     main = "Dispersion of Non-Tropical Genera",
+     ylab = "log(Genus Duration(Ma))",
+     xlab = "Log(Distance from Origin at Extinction(m))",
+     col = "#38e8e850", pch = 16)
+abline(nontropicstat)
+print(summary(nontropicstat))
+
+plot(plankresults$distance, plankresults$duration,
+     main = "Duration of Planktotrophic Brachiopods",
+     xlab = "log(Distance from Origin at Extinction(m))",
+     ylab = "log(Duration of Genus(Ma))",
+     col = "#0004fc", pch = 16)
+abline(plankstats)
+print(summary(plankstats))
+
+plot(lecitresults$distance, lecitresults$duration,
+     main = "Duration of Lecithotrophic Brachiopods",
+     xlab = "log(Distance from Origin at Extinction(m))",
+     ylab = "log(Duration of Genus(Ma))",
+     col = "#fc5000", pch = 16)
+abline(lecitstats)
+print(summary(lecitstats))
 
 dev.off()
