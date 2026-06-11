@@ -1,6 +1,8 @@
 library(chronosphere)
-library(divDyn)
+# library(divDyn)
 library(geosphere)
+
+
 
 
 # Get the data from pbdb
@@ -180,10 +182,11 @@ hist(distance, main = "Genus Distance from Origin at Extinction",
 
 results <- cbind(duration, distance)
 results <- as.data.frame(results)
-results$genus <- unique(dat$genus)
 
 # log results
 logresults <- as.data.frame(log10(results))
+results$genus <- unique(dat$genus)
+logresults$genus <- unique(dat$genus)
 
 # Clean data to remove
 # Kinda problematic because it is possible that there are enough 0/infinities to affect results
@@ -195,22 +198,26 @@ hist(logresults$duration)
 hist(logresults$distance)
 
 # Statistics of Results
-resultstat <- lm(duration ~ distance, results)
+resultstat <- lm(distance ~ duration, results)
 summary(resultstat)
 
-logresultstat <- lm(duration ~ distance, logresults)
+logresultstat <- lm(distance ~ duration, logresults)
 summary(logresultstat)
 
 # Plot Distance and Duration
-plot(distance, duration,
-     ylab = "Genus Lifespan (Ma)", xlab = "Distance from Location of Genus Origin at Extinction (m)",
+plot(duration, distance,
+     xlab = "Genus Lifespan (Ma)", ylab = "Dispersal Distance (m)",
      main = "Relationship between Genus Lifespan and Dispersion",
      col = "#1A611E50")
+abline(resultstat)
+legend("topright",legend = bquote(r^2 == .(summary(resultstat)$r.squared)))
 
-plot(y = logresults$duration, x = logresults$distance,
-     ylab = expression("log(Genus Lifespan (Ma))"), xlab = "log(Distance from Location of Genus Origin at Extinction (m))",
+plot(logresults$duration, logresults$distance,
+     xlab = expression("log(Genus Lifespan (Ma))"), ylab = "log(Dispersal Distance (m))",
      main = "Relationship between Genus Lifespan and Dispersion (log)",
      col = "#7C7CD950")
+abline(logresultstat)
+legend("topleft",legend = bquote(r^2 == .(summary(logresultstat)$r.squared)))
 
 # Test for correlation between duration and distance
 
@@ -224,13 +231,24 @@ cor.test(logresults$duration, logresults$distance)
 ####################
 # Compare different groups
 
-# Comparing tropical to non-tropical taxa
+# Comparing taxa which originate in tropics to those which do not
 troplat <- 23.4 # establishing tropics at 23.4 degrees latitude
 
-tropicdat <- abs(dat$paleolat) <= troplat
+# use a for loop to determine which genera originate in the tropics
+tropicgenera <- c()
+nontropicgenera <- c()
 
-nontropicgenera <- unique(dat$genus[!tropicdat]) # Species which do not rely on the tropics but may enter it
-tropicgenera <- unique(dat$genus[!dat$genus %in% nontropicgenera]) # Species which rely on tropics
+for(i in unique(dat$genus)){
+  if(min(dat$paleolat[dat$genus == i & (dat$max_ma[dat$genus == i] == max(dat$max_ma[dat$genus == i]))] < troplat, na.rm = TRUE)) {
+    tropicgenera[i] <- i
+  } else{
+    nontropicgenera[i] <- i
+  }
+}
+
+length(unique(dat$genus))
+
+length(tropicgenera) + length(nontropicgenera)
 
 # Compare duration/distances for tropical/nontropical genera
 tropicresults <- results[results$genus %in% tropicgenera, ]
@@ -263,74 +281,69 @@ hist(lognontropicresults$duration)
 hist(lognontropicresults$distance)
 
 # Statistics of tropic results
-tropicstat <- lm(duration ~ distance, logtropicresults)
+tropicstat <- lm(distance ~ duration, logtropicresults)
 summary(tropicstat)
 
-nontropicstat <- lm(duration ~ distance, lognontropicresults)
+nontropicstat <- lm(distance ~ duration, lognontropicresults)
 summary(nontropicstat)
 
 # Scatterplots for results
-plot(tropicresults$duration, tropicresults$distance)
-plot(y = logtropicresults$duration, x = logtropicresults$distance,
+plot(logtropicresults$duration, logtropicresults$distance,
      main = "Dispersion of Tropical Genera",
-     ylab = "log(Genus Duration(Ma))",
-     xlab = "Log(Distance from Origin at Extinction(m))",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance (m))",
      col = "#34eb3480", pch = 16)
 abline(tropicstat)
+legend("topleft",legend = bquote(r^2 == .(summary(tropicstat)$r.squared)))
 
-plot(nontropicresults$duration, nontropicresults$distance)
-plot(y = lognontropicresults$duration, x = lognontropicresults$distance,
+plot(lognontropicresults$duration, lognontropicresults$distance,
      main = "Dispersion of Non-Tropical Genera",
-     ylab = "log(Genus Duration(Ma))",
-     xlab = "Log(Distance from Origin at Extinction(m))",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance(m))",
      col = "#38e8e850", pch = 16)
 abline(nontropicstat)
+legend("topleft",legend = bquote(r^2 == .(summary(nontropicstat)$r.squared)))
 
 ################################
 # Compare results for taxa which are regarded as disperers vs nondispersers
-# Using lecithotrophic vs planktotrophic brachiopods
-plankorder <- c("Lingulida", "Discinida")
+# Using Bivalves vs Brachiopods
+bivalves <- dat[dat$class == "Bivalvia", ]
+bivalvegenus <- unique(bivalves$genus)
 
-plankbrach <- dat$genus[dat$order %in% plankorder]
+brachiopods <- dat[dat$phylum == "Brachiopoda", ]
+brachgenus <- unique(brachiopods$genus)
 
-lecithorder <- c("Craniida", "Terebratulida", "Rhynchonellida")
-
-lecithbrack <- dat$genus[dat$order %in% lecithorder]
 
 # Get logged stats for both  groups
-plankresults <- results[results$genus %in% plankbrach, ]
-plankresults$duration <- log10(plankresults$duration)
-plankresults$distance <- log10(plankresults$distance)
-plankresults <- plankresults[plankresults$distance != -Inf, ]
-plankstats <- lm(duration ~ distance, plankresults)
-summary(plankstats)
+bivalveresults <- logresults[bivalvegenus %in% logresults$genus, ]
+bivalvestats <- lm(data = bivalveresults, distance ~ duration)
+summary(bivalvestats)
 
-lecitresults <- results[results$genus %in% lecithbrack, ]
-lecitresults$duration <- log10(lecitresults$duration)
-lecitresults$distance <- log10(lecitresults$distance)
-lecitresults <- lecitresults[lecitresults$distance != -Inf, ]
-lecitstats <- lm(duration ~ distance, lecitresults)
-summary(lecitstats)
+brachresults <- logresults[brachgenus %in% logresults$genus, ]
+brachstats <- lm(distance ~ duration, brachresults)
+summary(brachstats)
 
 # Plot results
-plot(plankresults$distance, plankresults$duration,
-     main = "Duration of Planktotrophic Brachiopods",
-     xlab = "log(Distance from Origin at Extinction(m))",
-     ylab = "log(Duration of Genus(Ma))",
-     col = "#0004fc", pch = 16)
-abline(plankstats)
+plot(bivalveresults$duration, bivalveresults$distance,
+     main = "Dispersal of Fossil Bivalves",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#0004fc50", pch = 16)
+abline(bivalvestats)
+legend("topleft",legend = bquote(r^2 == .(summary(bivalvestats)$r.squared)))
 
-plot(lecitresults$distance, lecitresults$duration,
-     main = "Duration of Lecithotrophic Brachiopods",
-     xlab = "log(Distance from Origin at Extinction(m))",
-     ylab = "log(Duration of Genus(Ma))",
-     col = "#fc5000", pch = 16)
-abline(lecitstats)
+plot(brachresults$duration, brachresults$distance,
+     main = "Dispersal of Fossil Brachiopods",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#fc500070", pch = 16)
+abline(brachstats)
+legend("topleft",legend = bquote(r^2 == .(summary(brachstats)$r.squared)))
 
 ###########################################
 # Put all the results into a pdf
 # Make sure to change path if editing for personal use
-pdf("C:/users/jonny/Documents/R projects/Research Project Implementation/Results/graphs.pdf")
+pdf("Results/graphs.pdf")
 
 hist(duration, main = "Distribution of Genus Durations",
      xlab = "Genus Duration (Ma)")
@@ -338,50 +351,114 @@ hist(duration, main = "Distribution of Genus Durations",
 hist(distance, main = "Genus Distance from Origin at Extinction",
      xlab = "Distance(m)")
 
-plot(distance, duration,
-     ylab = "Genus Lifespan (Ma)", xlab = "Distance from Location of Genus Origin at Extinction (m)",
+plot(duration, distance,
+     xlab = "Genus Lifespan (Ma)", ylab = "Dispersal Distance (m)",
      main = "Relationship between Genus Lifespan and Dispersion",
      col = "#1A611E50")
 abline(resultstat)
+legend("topright",legend = bquote(r^2 == .(summary(resultstat)$r.squared)))
 print(summary(resultstat))
 
-plot(y = logresults$duration, x = logresults$distance,
-     ylab = expression("log(Genus Lifespan (Ma))"), xlab = "log(Distance from Location of Genus Origin at Extinction (m))",
+plot(logresults$duration, logresults$distance,
+     xlab = expression("log(Genus Lifespan (Ma))"), ylab = "log(Dispersal Distance (m))",
      main = "Relationship between Genus Lifespan and Dispersion (log)",
      col = "#7C7CD950")
 abline(logresultstat)
-summary(logresultstat)
+legend("topleft",legend = bquote(r^2 == .(summary(logresultstat)$r.squared)))
 
-plot(y = logtropicresults$duration, x = logtropicresults$distance,
+
+plot(logtropicresults$duration, logtropicresults$distance,
      main = "Dispersion of Tropical Genera",
-     ylab = "log(Genus Duration(Ma))",
-     xlab = "Log(Distance from Origin at Extinction(m))",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance (m))",
      col = "#34eb3480", pch = 16)
 abline(tropicstat)
-print(summary(tropicstat))
+legend("topleft",legend = bquote(r^2 == .(summary(tropicstat)$r.squared)))
 
-plot(y = lognontropicresults$duration, x = lognontropicresults$distance,
+plot(lognontropicresults$duration, lognontropicresults$distance,
      main = "Dispersion of Non-Tropical Genera",
-     ylab = "log(Genus Duration(Ma))",
-     xlab = "Log(Distance from Origin at Extinction(m))",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance(m))",
      col = "#38e8e850", pch = 16)
 abline(nontropicstat)
-print(summary(nontropicstat))
+legend("topleft",legend = bquote(r^2 == .(summary(nontropicstat)$r.squared)))
 
-plot(plankresults$distance, plankresults$duration,
-     main = "Duration of Planktotrophic Brachiopods",
-     xlab = "log(Distance from Origin at Extinction(m))",
-     ylab = "log(Duration of Genus(Ma))",
-     col = "#0004fc", pch = 16)
-abline(plankstats)
-print(summary(plankstats))
+plot(bivalveresults$duration, bivalveresults$distance,
+     main = "Dispersal of Fossil Bivalves",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#0004fc50", pch = 16)
+abline(bivalvestats)
+legend("topleft",legend = bquote(r^2 == .(summary(bivalvestats)$r.squared)))
 
-plot(lecitresults$distance, lecitresults$duration,
-     main = "Duration of Lecithotrophic Brachiopods",
-     xlab = "log(Distance from Origin at Extinction(m))",
-     ylab = "log(Duration of Genus(Ma))",
-     col = "#fc5000", pch = 16)
-abline(lecitstats)
-print(summary(lecitstats))
+plot(brachresults$duration, brachresults$distance,
+     main = "Dispersal of Fossil Brachiopods",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#fc500070", pch = 16)
+abline(brachstats)
+legend("topleft",legend = bquote(r^2 == .(summary(brachstats)$r.squared)))
 
+dev.off()
+
+
+###############
+# Making a bunch of pngs of the graphs
+png("Results/primary.png")
+plot(duration, distance,
+     xlab = "Genus Lifespan (Ma)", ylab = "Dispersal Distance (m)",
+     main = "Relationship between Genus Lifespan and Dispersion",
+     col = "#1A611E50")
+abline(resultstat)
+legend("topright",legend = bquote(r^2 == .(summary(resultstat)$r.squared)))
+dev.off()
+
+png("Results/log primary.png")
+plot(logresults$duration, logresults$distance,
+     xlab = expression("log(Genus Lifespan (Ma))"), ylab = "log(Dispersal Distance (m))",
+     main = "Relationship between Genus Lifespan and Dispersion (log)",
+     col = "#7C7CD950")
+abline(logresultstat)
+legend("topleft",legend = bquote(r^2 == .(summary(logresultstat)$r.squared)))
+dev.off()
+
+png("Results/tropic.png")
+plot(logtropicresults$duration, logtropicresults$distance,
+     main = "Dispersion of Tropical Genera",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance (m))",
+     col = "#34eb3480", pch = 16)
+abline(tropicstat)
+legend("topleft",legend = bquote(r^2 == .(summary(tropicstat)$r.squared)))
+dev.off()
+
+
+png("Results/nontropic.png")
+plot(lognontropicresults$duration, lognontropicresults$distance,
+     main = "Dispersion of Non-Tropical Genera",
+     xlab = "log(Genus Duration(Ma))",
+     ylab = "Log(Dispersal Distance(m))",
+     col = "#38e8e850", pch = 16)
+abline(nontropicstat)
+legend("topleft",legend = bquote(r^2 == .(summary(nontropicstat)$r.squared)))
+dev.off()
+
+png("Results/bivalves.png")
+plot(bivalveresults$duration, bivalveresults$distance,
+     main = "Dispersal of Fossil Bivalves",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#0004fc50", pch = 16)
+abline(bivalvestats)
+legend("topleft",legend = bquote(r^2 == .(summary(bivalvestats)$r.squared)))
+dev.off()
+
+png("Results/brachiopods.png")
+plot(brachresults$duration, brachresults$distance,
+     main = "Dispersal of Fossil Brachiopods",
+     ylab = "log(Dispersal Distance(m))",
+     xlab = "log(Duration of Genus(Ma))",
+     col = "#fc500070", pch = 16)
+abline(brachstats)
+legend("topleft",legend = bquote(r^2 == .(summary(brachstats)$r.squared)))
 dev.off()
