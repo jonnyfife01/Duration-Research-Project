@@ -3,7 +3,8 @@ library(chronosphere)
 library(geosphere)
 
 
-
+# Set Working directory
+setwd("C:/Users/jonny/Documents/R Projects/Research Project Implementation")
 
 # Get the data from pbdb
 # updated may 17, 2026
